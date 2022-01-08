@@ -180,6 +180,7 @@ def diff_frames(frame_folder, thre=0.05, metric="NRMSE"):
 
 
     filter_frames = []
+    droped_frame = []
     pre_img = None
     for frame in frame_seq:
         img = cv2.imread("%s/%d.png" % (frame_folder, frame))
@@ -196,17 +197,34 @@ def diff_frames(frame_folder, thre=0.05, metric="NRMSE"):
                 filter_frames.append(frame)
             else:
                 os.remove("%s/%d.png" % (frame_folder, frame))
+                droped_frame.append(frame)
         else:
             pre_img = img_gray
             filter_frames.append(frame)
-    
+            
     print("filtered frame number")
     fout.write(" ".join([str(f) for f in filter_frames]))
     fout.close()
 
+    return droped_frame
 
+def ifcontinue(list):
+    result = []
+    s1=[]
+    # identify if there is an consecutive sublist (e.g., [2,3,4,5,...,n]) which length is larger than 3
+    for x in sorted(set(list)):
+        s1.append(x)
+        if x+1 not in list:
+            if len(s1) != 1:
+                result.append(s1)
+            s1=[]
+    for item in result:
+        if len(item)>=4:
+            return 1
+        else:
+            return 0    
 
-def predict_sample_afterdelete():
+def predict_sample_afterdelete(droped_frame):
 
     class_names = ['invalid',"valid"]
     validnumber = 0
@@ -250,12 +268,18 @@ def predict_sample_afterdelete():
                         invalid.append(int(number))
                     else:
                         duplicate.append(int(number))
-            print(sorted(valid))
-            print(sorted(invalid))
-            validnumber += len(valid)
-            invalidnumber += len(invalid)
+            flag_continue = 0
+            flag_continue = ifcontinue(valid)
+            flag_ratio = 0
+            if len(valid)/(len(valid)+len(invalid))>=0.5:
+                flag_ratio=1
+            if flag_continue ==1 and flag_ratio ==1:
+                print('this video %s is a programming screencast. '%(data))
+
+            # another algorithm to identify if videos are programming screencast (deprecated)
             predict_result = video_predict(valid,invalid,duplicate)
-            print(data)
+            if predict_result==1:
+                print('this video %s is a programming screencast. '%(data))
             # print(validnumber)
             # print(invalidnumber)
             with open("evaluation/log/videopredict.txt","a")as f:
@@ -374,13 +398,10 @@ def predict_otheride_afterdelete():
 
 
 
-# for data in os.listdir("evaluation_data/sample"):
-#     video_path = os.path.join("evaluation_data/sample",data)
-#     diff_frames(video_path, thre=0.05, metric="NRMSE")
-# 预测non-screencasts
-
-
-print(predict_sample_afterdelete())
+for data in os.listdir("evaluation_data/sample"):
+    video_path = os.path.join("evaluation_data/sample",data)
+    droped_image = diff_frames(video_path, thre=0.05, metric="NRMSE")
+    predict_sample_afterdelete(droped_image)
 
 
 
